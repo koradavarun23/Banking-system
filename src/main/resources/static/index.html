@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simple Bank</title>
+<style>
+  :root {
+    --bg:#f4f6fb; --card:#ffffff; --text:#1c2333; --muted:#6b7488; --line:#e3e7f0;
+    --brand:#2459d6; --brand-d:#1a44a8; --ok:#16875a; --bad:#c93a3a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1420; --card:#181f30; --text:#e8ecf5; --muted:#939bb2; --line:#2a3350;
+            --brand:#5b8cff; --brand-d:#7aa0ff; --ok:#3ecf8e; --bad:#ff6b6b; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header { background:var(--brand); color:#fff; padding:18px 24px; display:flex; align-items:center; justify-content:space-between; }
+  header h1 { margin:0; font-size:20px; letter-spacing:.3px; }
+  header .total { text-align:right; font-size:13px; opacity:.9; }
+  header .total strong { display:block; font-size:22px; }
+  main { max-width:1100px; margin:24px auto; padding:0 16px; display:grid; gap:20px; grid-template-columns:1.4fr 1fr; }
+  @media (max-width:860px){ main{grid-template-columns:1fr;} }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px; }
+  .card h2 { margin:0 0 12px; font-size:16px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th,td { text-align:left; padding:9px 6px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .empty { color:var(--muted); padding:14px 0; font-size:14px; }
+  label { display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; }
+  input, select { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); font-size:14px; }
+  input:focus, select:focus { outline:2px solid var(--brand); border-color:transparent; }
+  button { cursor:pointer; border:0; border-radius:8px; padding:9px 14px; font-size:14px; font-weight:600; background:var(--brand); color:#fff; }
+  button:hover { background:var(--brand-d); }
+  button.ghost { background:transparent; color:var(--brand); padding:4px 8px; border:1px solid var(--line); font-weight:500; }
+  button.ghost:hover { background:var(--bg); }
+  button.danger { color:var(--bad); }
+  .row { display:flex; gap:8px; }
+  .row > * { flex:1; }
+  .tabs { display:flex; gap:6px; margin-bottom:6px; }
+  .tabs button { background:var(--bg); color:var(--muted); flex:1; }
+  .tabs button.active { background:var(--brand); color:#fff; }
+  .credit { color:var(--ok); } .debit { color:var(--bad); }
+  #toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); padding:11px 18px; border-radius:10px; color:#fff; font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none; max-width:90vw; }
+  #toast.show { opacity:1; } #toast.ok { background:var(--ok); } #toast.err { background:var(--bad); }
+  .full { grid-column:1 / -1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏦 Simple Bank</h1>
+  <div class="total">Total deposits<strong id="total">0.00</strong></div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Accounts</h2>
+    <div id="accounts"></div>
+  </section>
+
+  <div>
+    <section class="card">
+      <h2>Open account</h2>
+      <label for="holder">Holder name</label>
+      <input id="holder" placeholder="e.g. Priya Sharma">
+      <div style="margin-top:12px"><button id="openBtn">Open account</button></div>
+    </section>
+
+    <section class="card" style="margin-top:20px">
+      <h2>Transact</h2>
+      <div class="tabs">
+        <button data-tab="deposit" class="active">Deposit</button>
+        <button data-tab="withdraw">Withdraw</button>
+        <button data-tab="transfer">Transfer</button>
+      </div>
+      <label id="fromLabel" for="fromSel">Account</label>
+      <select id="fromSel"></select>
+      <div id="toWrap" style="display:none">
+        <label for="toSel">To account</label>
+        <select id="toSel"></select>
+      </div>
+      <label for="amount">Amount</label>
+      <input id="amount" type="number" min="0.01" step="0.01" placeholder="0.00">
+      <div style="margin-top:12px"><button id="goBtn">Deposit</button></div>
+    </section>
+  </div>
+
+  <section class="card full" id="stmtCard" style="display:none">
+    <h2 id="stmtTitle">Statement</h2>
+    <div id="stmt"></div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let accounts = [];
+let mode = 'deposit';
+let openStatement = null;
+
+const fmt = n => Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+async function api(path, method = 'GET', body) {
+  const res = await fetch('/api' + path, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const text = await res.text();
+  let data = null;
+  if (text) { try { data = JSON.parse(text); } catch (e) { /* not json */ } }
+  if (!res.ok) throw new Error((data && data.error) || 'Request failed (' + res.status + ')');
+  return data;
+}
+
+function toast(msg, ok = true) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'show ' + (ok ? 'ok' : 'err');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.className = '', 2800);
+}
+
+function el(tag, props = {}, ...kids) {
+  const e = document.createElement(tag);
+  Object.assign(e, props);
+  kids.forEach(k => e.append(k));
+  return e;
+}
+
+async function refresh() {
+  accounts = await api('/accounts');
+  renderAccounts();
+  renderSelects();
+  $('#total').textContent = fmt(accounts.reduce((s, a) => s + Number(a.balance), 0));
+  if (openStatement && accounts.some(a => a.accountNumber === openStatement)) {
+    await showStatement(openStatement);
+  } else {
+    openStatement = null;
+    $('#stmtCard').style.display = 'none';
+  }
+}
+
+function renderAccounts() {
+  const box = $('#accounts');
+  box.replaceChildren();
+  if (!accounts.length) { box.append(el('div', { className: 'empty', textContent: 'No accounts yet. Open one on the right.' })); return; }
+
+  const table = el('table');
+  const head = el('tr');
+  [['Account', ''], ['Holder', ''], ['Balance', 'num'], ['', '']].forEach(([t, c]) => head.append(el('th', { textContent: t, className: c })));
+  table.append(el('thead', {}, head));
+
+  const body = el('tbody');
+  accounts.forEach(a => {
+    const stmtBtn = el('button', { className: 'ghost', textContent: 'Statement' });
+    stmtBtn.onclick = () => showStatement(a.accountNumber);
+    const closeBtn = el('button', { className: 'ghost danger', textContent: 'Close' });
+    closeBtn.onclick = () => closeAccount(a.accountNumber);
+    const actions = el('td', { className: 'num' }, stmtBtn, ' ', closeBtn);
+    body.append(el('tr', {},
+      el('td', { textContent: a.accountNumber }),
+      el('td', { textContent: a.holderName }),
+      el('td', { className: 'num', textContent: fmt(a.balance) }),
+      actions));
+  });
+  table.append(body);
+  box.append(table);
+}
+
+function renderSelects() {
+  ['#fromSel', '#toSel'].forEach(sel => {
+    const s = $(sel);
+    const prev = s.value;
+    s.replaceChildren();
+    accounts.forEach(a => s.append(el('option', { value: a.accountNumber, textContent: a.accountNumber + ' — ' + a.holderName })));
+    if (prev) s.value = prev;
+  });
+  if (accounts.length > 1 && $('#toSel').value === $('#fromSel').value) {
+    $('#toSel').selectedIndex = ($('#fromSel').selectedIndex + 1) % accounts.length;
+  }
+}
+
+async function showStatement(number) {
+  try {
+    const tx = await api('/accounts/' + encodeURIComponent(number) + '/transactions');
+    openStatement = number;
+    const acc = accounts.find(a => a.accountNumber === number);
+    $('#stmtTitle').textContent = 'Statement — ' + number + (acc ? ' (' + acc.holderName + ')' : '');
+    const box = $('#stmt');
+    box.replaceChildren();
+    if (!tx.length) { box.append(el('div', { className: 'empty', textContent: 'No transactions yet.' })); }
+    else {
+      const table = el('table');
+      const head = el('tr');
+      [['Time', ''], ['Type', ''], ['Amount', 'num'], ['Balance after', 'num']].forEach(([t, c]) => head.append(el('th', { textContent: t, className: c })));
+      table.append(el('thead', {}, head));
+      const body = el('tbody');
+      tx.slice().reverse().forEach(t => {
+        const credit = t.type === 'DEPOSIT' || t.type === 'TRANSFER_IN';
+        body.append(el('tr', {},
+          el('td', { textContent: new Date(t.timestamp).toLocaleString() }),
+          el('td', { textContent: t.type.replace('_', ' ') }),
+          el('td', { className: 'num ' + (credit ? 'credit' : 'debit'), textContent: (credit ? '+' : '-') + fmt(t.amount) }),
+          el('td', { className: 'num', textContent: fmt(t.balanceAfter) })));
+      });
+      table.append(body);
+      box.append(table);
+    }
+    $('#stmtCard').style.display = '';
+    $('#stmtCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (e) { toast(e.message, false); }
+}
+
+async function closeAccount(number) {
+  if (!confirm('Close account ' + number + '? Balance must be zero.')) return;
+  try { await api('/accounts/' + encodeURIComponent(number), 'DELETE'); toast('Account closed'); await refresh(); }
+  catch (e) { toast(e.message, false); }
+}
+
+$('#openBtn').onclick = async () => {
+  const name = $('#holder').value.trim();
+  try {
+    const a = await api('/accounts', 'POST', { holderName: name });
+    $('#holder').value = '';
+    toast('Opened ' + a.accountNumber);
+    await refresh();
+  } catch (e) { toast(e.message, false); }
+};
+
+document.querySelectorAll('.tabs button').forEach(b => {
+  b.onclick = () => {
+    mode = b.dataset.tab;
+    document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('active', x === b));
+    $('#toWrap').style.display = mode === 'transfer' ? '' : 'none';
+    $('#fromLabel').textContent = mode === 'transfer' ? 'From account' : 'Account';
+    $('#goBtn').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+  };
+});
+
+$('#goBtn').onclick = async () => {
+  const amount = parseFloat($('#amount').value);
+  const from = $('#fromSel').value;
+  if (!from) { toast('Open an account first', false); return; }
+  if (!(amount > 0)) { toast('Enter a positive amount', false); return; }
+  try {
+    if (mode === 'transfer') {
+      await api('/transfer', 'POST', { from, to: $('#toSel').value, amount });
+      toast('Transferred ' + fmt(amount));
+    } else {
+      await api('/accounts/' + encodeURIComponent(from) + '/' + mode, 'POST', { amount });
+      toast((mode === 'deposit' ? 'Deposited ' : 'Withdrew ') + fmt(amount));
+    }
+    $('#amount').value = '';
+    await refresh();
+  } catch (e) { toast(e.message, false); }
+};
+
+refresh().catch(e => toast(e.message, false));
+</script>
+</body>
+</html>
