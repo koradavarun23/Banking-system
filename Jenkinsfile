@@ -2,8 +2,7 @@ pipeline {
     agent any
 
     tools {
-        maven 'maven3'   // must match Manage Jenkins -> Tools
-        jdk 'jdk17'
+        maven 'Maven'
     }
 
     options {
@@ -21,13 +20,13 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'mvn -B clean compile'
+                bat 'mvn -B clean compile'
             }
         }
 
         stage('Test') {
             steps {
-                sh 'mvn -B test'
+                bat 'mvn -B test'
             }
             post {
                 always {
@@ -38,7 +37,7 @@ pipeline {
 
         stage('Package') {
             steps {
-                sh 'mvn -B package -DskipTests'
+                bat 'mvn -B package -DskipTests'
             }
         }
 
@@ -52,6 +51,6 @@ pipeline {
     post {
         success { echo 'Pipeline succeeded' }
         failure { echo 'Pipeline failed' }
-        always  { cleanWs() }
+        always  { deleteDir() }
     }
 }
