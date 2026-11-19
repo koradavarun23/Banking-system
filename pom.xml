@@ -4,7 +4,6 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-<<<<<<< HEAD
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
@@ -19,35 +18,16 @@
 
   <properties>
     <java.version>17</java.version>
-=======
-  <groupId>com.example</groupId>
-  <artifactId>banking-system</artifactId>
-  <version>1.0.0</version>
-  <packaging>jar</packaging>
-  <name>Simple Banking System</name>
-
-  <properties>
-    <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>17</maven.compiler.target>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <junit.version>5.10.2</junit.version>
->>>>>>> d4278bbda34d0600fd568d55c22b83ad321cd9b3
   </properties>
 
   <dependencies>
     <dependency>
-<<<<<<< HEAD
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
-=======
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <version>${junit.version}</version>
->>>>>>> d4278bbda34d0600fd568d55c22b83ad321cd9b3
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -55,27 +35,10 @@
   <build>
     <plugins>
       <plugin>
-<<<<<<< HEAD
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
           <mainClass>com.example.bank.BankingApplication</mainClass>
-=======
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.2.5</version>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <version>3.3.0</version>
-        <configuration>
-          <archive>
-            <manifest>
-              <mainClass>com.example.bank.Main</mainClass>
-            </manifest>
-          </archive>
->>>>>>> d4278bbda34d0600fd568d55c22b83ad321cd9b3
         </configuration>
       </plugin>
     </plugins>
